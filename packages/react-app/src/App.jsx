@@ -289,7 +289,7 @@ function App(props) {
                 and give you a form to interact with it locally
             */}
 
-          <Contract
+          {/* <Contract
             name="YourContract"
             price={price}
             signer={userSigner}
@@ -297,7 +297,7 @@ function App(props) {
             address={address}
             blockExplorer={blockExplorer}
             contractConfig={contractConfig}
-          />
+          /> */}
           <Contract
             name="TKN6"
             price={price}
