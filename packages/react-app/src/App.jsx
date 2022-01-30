@@ -263,6 +263,9 @@ function App(props) {
         <Menu.Item key="/debug">
           <Link to="/debug">Debug Contracts</Link>
         </Menu.Item>
+        <Menu.Item key="/tokens">
+          <Link to="/tokens">Tokens</Link>
+        </Menu.Item>
         {/* <Menu.Item key="/hints">
           <Link to="/hints">Hints</Link>
         </Menu.Item> */}
@@ -289,26 +292,8 @@ function App(props) {
                 and give you a form to interact with it locally
             */}
 
-          {/* <Contract
+          <Contract
             name="YourContract"
-            price={price}
-            signer={userSigner}
-            provider={localProvider}
-            address={address}
-            blockExplorer={blockExplorer}
-            contractConfig={contractConfig}
-          /> */}
-          <Contract
-            name="TKN6"
-            price={price}
-            signer={userSigner}
-            provider={localProvider}
-            address={address}
-            blockExplorer={blockExplorer}
-            contractConfig={contractConfig}
-          />
-          <Contract
-            name="TKN18"
             price={price}
             signer={userSigner}
             provider={localProvider}
@@ -337,6 +322,26 @@ function App(props) {
             writeContracts={writeContracts}
             readContracts={readContracts}
             purpose={purpose}
+          />
+        </Route>
+        <Route exact path="/tokens">
+          <Contract
+            name="TKN6"
+            price={price}
+            signer={userSigner}
+            provider={localProvider}
+            address={address}
+            blockExplorer={blockExplorer}
+            contractConfig={contractConfig}
+          />
+          <Contract
+            name="TKN18"
+            price={price}
+            signer={userSigner}
+            provider={localProvider}
+            address={address}
+            blockExplorer={blockExplorer}
+            contractConfig={contractConfig}
           />
         </Route>
         <Route path="/mainnetdai">
