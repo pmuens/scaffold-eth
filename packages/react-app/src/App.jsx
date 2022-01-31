@@ -260,8 +260,8 @@ function App(props) {
         {/* <Menu.Item key="/">
           <Link to="/">App Home</Link>
         </Menu.Item> */}
-        <Menu.Item key="/debug">
-          <Link to="/debug">Debug Contracts</Link>
+        <Menu.Item key="/dex">
+          <Link to="/dex">DEX</Link>
         </Menu.Item>
         <Menu.Item key="/tokens">
           <Link to="/tokens">Tokens</Link>
@@ -271,6 +271,9 @@ function App(props) {
         </Menu.Item> */}
         <Menu.Item key="/exampleui">
           <Link to="/exampleui">ExampleUI</Link>
+        </Menu.Item>
+        <Menu.Item key="/debug">
+          <Link to="/debug">Debug Contracts</Link>
         </Menu.Item>
         {/* <Menu.Item key="/mainnetdai">
           <Link to="/mainnetdai">Mainnet DAI</Link>
@@ -322,6 +325,17 @@ function App(props) {
             writeContracts={writeContracts}
             readContracts={readContracts}
             purpose={purpose}
+          />
+        </Route>
+        <Route exact path="/dex">
+          <Contract
+            name="MockExchange"
+            price={price}
+            signer={userSigner}
+            provider={localProvider}
+            address={address}
+            blockExplorer={blockExplorer}
+            contractConfig={contractConfig}
           />
         </Route>
         <Route exact path="/tokens">
