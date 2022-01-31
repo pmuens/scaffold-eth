@@ -331,6 +331,7 @@ function App(props) {
             signer={userSigner}
             provider={localProvider}
             address={address}
+            show={["allowance", "approve", "balanceOf", "burn", "faucet"]}
             blockExplorer={blockExplorer}
             contractConfig={contractConfig}
           />
@@ -340,6 +341,7 @@ function App(props) {
             signer={userSigner}
             provider={localProvider}
             address={address}
+            show={["allowance", "approve", "balanceOf", "burn", "faucet"]}
             blockExplorer={blockExplorer}
             contractConfig={contractConfig}
           />
