@@ -3,7 +3,7 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { IExchange } from "./IExchange.sol";
+import { IExchange } from "./interfaces/IExchange.sol";
 
 contract DCA {
     IERC20 public immutable toSell;
