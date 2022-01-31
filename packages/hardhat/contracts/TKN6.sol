@@ -13,4 +13,9 @@ contract TKN6 is ERC20 {
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
+
+    function burn() external {
+        uint256 amount = balanceOf(msg.sender);
+        _burn(msg.sender, amount);
+    }
 }
