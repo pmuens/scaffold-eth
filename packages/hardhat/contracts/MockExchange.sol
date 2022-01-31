@@ -3,18 +3,18 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-contract MockExchange {
+import { IExchange } from "./IExchange.sol";
+
+contract MockExchange is IExchange {
     IERC20Metadata private from;
     IERC20Metadata private to;
-
-    event Swap(address indexed sender, IERC20Metadata indexed from, IERC20Metadata indexed to, uint256 amount, uint256 received);
 
     constructor(IERC20Metadata from_, IERC20Metadata to_) {
         from = from_;
         to = to_;
     }
 
-    function swap(uint256 amount) public returns (uint256) {
+    function swap(uint256 amount) public override returns (uint256) {
         from.transferFrom(msg.sender, address(this), amount);
 
         uint256 multiplier = 2;
