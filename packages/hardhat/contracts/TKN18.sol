@@ -14,6 +14,11 @@ contract TKN18 is ERC20 {
         _mint(to, amount);
     }
 
+    function faucet() external {
+        uint256 amount = 20 * 10 ** uint256(decimals());
+        _mint(msg.sender, amount);
+    }
+
     function burn() external {
         uint256 amount = balanceOf(msg.sender);
         _burn(msg.sender, amount);
