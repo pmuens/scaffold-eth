@@ -30,8 +30,8 @@ describe("MockExchange", () => {
       const from = tkn6;
       const to = tkn18;
 
-      expect(await exchange.tokenFromAddress()).to.equal(from.address);
-      expect(await exchange.tokenToAddress()).to.equal(to.address);
+      expect(await exchange.from()).to.equal(from.address);
+      expect(await exchange.to()).to.equal(to.address);
 
       await from.mint(user.address, parseUnits("1000000", 6));
       const fromBalance = await from.balanceOf(user.address);
@@ -57,8 +57,8 @@ describe("MockExchange", () => {
 
       await exchange.changeDirection();
 
-      expect(await exchange.tokenFromAddress()).to.equal(from.address);
-      expect(await exchange.tokenToAddress()).to.equal(to.address);
+      expect(await exchange.from()).to.equal(from.address);
+      expect(await exchange.to()).to.equal(to.address);
 
       await from.mint(user.address, parseUnits("1000000", 18));
       const fromBalance = await from.balanceOf(user.address);

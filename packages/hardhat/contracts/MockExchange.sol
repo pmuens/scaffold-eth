@@ -6,8 +6,8 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { IExchange } from "./IExchange.sol";
 
 contract MockExchange is IExchange {
-    IERC20Metadata private from;
-    IERC20Metadata private to;
+    IERC20Metadata public from;
+    IERC20Metadata public to;
 
     constructor(IERC20Metadata from_, IERC20Metadata to_) {
         from = from_;
@@ -32,21 +32,5 @@ contract MockExchange is IExchange {
 
         from = to;
         to = stash;
-    }
-
-    function tokenFromAddress() external view returns (address) {
-        return address(from);
-    }
-
-    function tokenFromSymbol() external view returns (string memory) {
-        return from.symbol();
-    }
-
-    function tokenToAddress() external view returns (address) {
-        return address(to);
-    }
-
-    function tokenToSymbol() external view returns (string memory) {
-        return to.symbol();
     }
 }
