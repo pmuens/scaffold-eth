@@ -263,6 +263,9 @@ function App(props) {
         <Menu.Item key="/dex">
           <Link to="/dex">DEX</Link>
         </Menu.Item>
+        <Menu.Item key="/dca">
+          <Link to="/dca">DCA</Link>
+        </Menu.Item>
         <Menu.Item key="/tokens">
           <Link to="/tokens">Tokens</Link>
         </Menu.Item>
@@ -330,6 +333,17 @@ function App(props) {
         <Route exact path="/dex">
           <Contract
             name="MockExchange"
+            price={price}
+            signer={userSigner}
+            provider={localProvider}
+            address={address}
+            blockExplorer={blockExplorer}
+            contractConfig={contractConfig}
+          />
+        </Route>
+        <Route exact path="/dca">
+          <Contract
+            name="DCA"
             price={price}
             signer={userSigner}
             provider={localProvider}
