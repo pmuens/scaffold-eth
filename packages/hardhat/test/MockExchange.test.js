@@ -42,9 +42,12 @@ describe("MockExchange", () => {
       expect(await from.balanceOf(user.address)).to.equal(fromBalance);
       expect(await to.balanceOf(user.address)).to.equal(0);
 
-      await exchange.connect(user).swap(amount);
-
       const received = parseUnits("24690", 18);
+
+      await expect(exchange.connect(user).swap(amount))
+        .to.emit(exchange, "Swap")
+        .withArgs(user.address, from.address, to.address, amount, received);
+
       expect(await from.balanceOf(user.address)).to.equal(
         fromBalance.sub(amount)
       );
@@ -69,9 +72,12 @@ describe("MockExchange", () => {
       expect(await from.balanceOf(user.address)).to.equal(fromBalance);
       expect(await to.balanceOf(user.address)).to.equal(0);
 
-      await exchange.connect(user).swap(amount);
-
       const received = parseUnits("24690", 6);
+
+      await expect(exchange.connect(user).swap(amount))
+        .to.emit(exchange, "Swap")
+        .withArgs(user.address, from.address, to.address, amount, received);
+
       expect(await from.balanceOf(user.address)).to.equal(
         fromBalance.sub(amount)
       );
