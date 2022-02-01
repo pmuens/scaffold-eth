@@ -44,7 +44,9 @@ describe("MockExchange", () => {
 
       const received = parseUnits("24690", 18);
 
-      await expect(exchange.connect(user).swap(amount))
+      await expect(
+        exchange.connect(user).swap(from.address, to.address, amount)
+      )
         .to.emit(exchange, "Swap")
         .withArgs(user.address, from.address, to.address, amount, received);
 
@@ -74,7 +76,9 @@ describe("MockExchange", () => {
 
       const received = parseUnits("24690", 6);
 
-      await expect(exchange.connect(user).swap(amount))
+      await expect(
+        exchange.connect(user).swap(from.address, to.address, amount)
+      )
         .to.emit(exchange, "Swap")
         .withArgs(user.address, from.address, to.address, amount, received);
 
