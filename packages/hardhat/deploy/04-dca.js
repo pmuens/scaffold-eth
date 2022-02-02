@@ -4,8 +4,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   const { deploy } = deployments;
   const { deployer } = await getNamedAccounts();
 
-  const toSell = await ethers.getContract("TKN6", deployer);
-  const toBuy = await ethers.getContract("TKN18", deployer);
+  const toSell = await ethers.getContract("TokenA", deployer);
+  const toBuy = await ethers.getContract("TokenB", deployer);
   const exchange = await ethers.getContract("MockExchange", deployer);
 
   await deploy("DCA", {

@@ -354,7 +354,7 @@ function App(props) {
         </Route>
         <Route exact path="/tokens">
           <Contract
-            name="TKN6"
+            name="TokenA"
             price={price}
             signer={userSigner}
             provider={localProvider}
@@ -364,7 +364,7 @@ function App(props) {
             contractConfig={contractConfig}
           />
           <Contract
-            name="TKN18"
+            name="TokenB"
             price={price}
             signer={userSigner}
             provider={localProvider}

@@ -9,8 +9,8 @@ describe("DCA", () => {
   let user;
   let dca;
   let exchange;
-  let tkn6;
-  let tkn18;
+  let tokenA;
+  let tokenB;
 
   beforeEach(async () => {
     [deployer, user] = await ethers.getSigners();
@@ -20,23 +20,23 @@ describe("DCA", () => {
       "MockExchange",
       deployer
     );
-    const tkn6Factory = await ethers.getContractFactory("TKN6", deployer);
-    const tkn18Factory = await ethers.getContractFactory("TKN18", deployer);
+    const tokenAFactory = await ethers.getContractFactory("TokenA", deployer);
+    const tokenBFactory = await ethers.getContractFactory("TokenB", deployer);
     // Deploy contracts
-    tkn6 = await tkn6Factory.deploy();
-    tkn18 = await tkn18Factory.deploy();
-    exchange = await exchangeFactory.deploy(tkn6.address, tkn18.address);
+    tokenA = await tokenAFactory.deploy();
+    tokenB = await tokenBFactory.deploy();
+    exchange = await exchangeFactory.deploy(tokenA.address, tokenB.address);
     dca = await dcaFactory.deploy(
-      tkn6.address,
-      tkn18.address,
+      tokenA.address,
+      tokenB.address,
       exchange.address
     );
     // Seed exchange with funds
-    await tkn6.mint(exchange.address, parseUnits("1000000", 6));
-    await tkn18.mint(exchange.address, parseUnits("1000000", 18));
+    await tokenA.mint(exchange.address, parseUnits("1000000", 18));
+    await tokenB.mint(exchange.address, parseUnits("1000000", 18));
     // Seed user with funds
-    await tkn6.mint(user.address, parseUnits("1000000", 6));
-    await tkn18.mint(user.address, parseUnits("1000000", 18));
+    await tokenA.mint(user.address, parseUnits("1000000", 18));
+    await tokenB.mint(user.address, parseUnits("1000000", 18));
   });
 
   describe("#enter()", () => {
@@ -67,7 +67,7 @@ describe("DCA", () => {
       const duration = 7;
 
       const total = amount.mul(duration);
-      await tkn6.connect(user).approve(dca.address, total);
+      await tokenA.connect(user).approve(dca.address, total);
 
       const startDay = today;
       // Subtracting 1 given that we'll also swap on the `startDay`
@@ -77,7 +77,7 @@ describe("DCA", () => {
         .to.emit(dca, "Enter")
         .withArgs(0, user.address, amount, startDay, endDay);
 
-      expect(await tkn6.balanceOf(dca.address)).to.equal(total);
+      expect(await tokenA.balanceOf(dca.address)).to.equal(total);
       expect(await dca.dailyAmount()).to.equal(amount);
       expect(await dca.removeAmount(endDay)).to.equal(amount);
       expect(await dca.nextAllocationId()).to.equal(1);
@@ -98,7 +98,7 @@ describe("DCA", () => {
       const duration = 7;
 
       const total = amount.mul(duration);
-      await tkn6.connect(user).approve(dca.address, total);
+      await tokenA.connect(user).approve(dca.address, total);
 
       const startDay = today + 1;
       // Subtracting 1 given that we'll also swap on the `startDay`
@@ -108,7 +108,7 @@ describe("DCA", () => {
         .to.emit(dca, "Enter")
         .withArgs(0, user.address, amount, startDay, endDay);
 
-      expect(await tkn6.balanceOf(dca.address)).to.equal(total);
+      expect(await tokenA.balanceOf(dca.address)).to.equal(total);
       expect(await dca.dailyAmount()).to.equal(amount);
       expect(await dca.removeAmount(endDay)).to.equal(amount);
       expect(await dca.nextAllocationId()).to.equal(1);
@@ -129,7 +129,7 @@ describe("DCA", () => {
       const duration = 1;
 
       const total = amount.mul(duration);
-      await tkn6.connect(user).approve(dca.address, total);
+      await tokenA.connect(user).approve(dca.address, total);
 
       const startDay = today;
       const endDay = startDay;
@@ -138,7 +138,7 @@ describe("DCA", () => {
         .to.emit(dca, "Enter")
         .withArgs(0, user.address, amount, startDay, endDay);
 
-      expect(await tkn6.balanceOf(dca.address)).to.equal(total);
+      expect(await tokenA.balanceOf(dca.address)).to.equal(total);
       expect(await dca.dailyAmount()).to.equal(amount);
       expect(await dca.removeAmount(endDay)).to.equal(amount);
       expect(await dca.nextAllocationId()).to.equal(1);
