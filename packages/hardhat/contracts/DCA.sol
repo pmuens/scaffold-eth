@@ -7,8 +7,10 @@ import { IExchange } from "./interfaces/IExchange.sol";
 
 library Errors {
     string internal constant _AmountZero = "Amount can't be 0";
+    string internal constant _NothingToSell = "Nothing to sell";
     string internal constant _DurationZero = "Duration can't be 0";
     string internal constant _EighteenDecimals = "Token must have 18 decimals";
+    string internal constant _FunctionCalledToday = "Function already called today";
 }
 
 contract DCA {
@@ -30,7 +32,9 @@ contract DCA {
     uint256 public nextAllocationId;
     mapping(uint256 => uint256) public removeAmount;
     mapping(uint256 => Allocation) public allocations;
+    mapping(uint256 => uint256) public toBuyPriceCumulative;
 
+    event Swap(uint256 indexed toSellSold, uint256 toBuyBought, uint256 toBuyPrice);
     event Enter(uint256 indexed id, address indexed sender, uint256 indexed amount, uint256 startDay, uint256 endDay);
 
     constructor (IERC20Metadata toSell_, IERC20Metadata toBuy_ ,IExchange exchange_) {
@@ -73,6 +77,39 @@ contract DCA {
         emit Enter(id, msg.sender, amount, startDay, endDay);
 
         return id;
+    }
+
+    function swap() external returns (uint256, uint256) {
+        require(lastExecution < _today(), Errors._FunctionCalledToday);
+        require(dailyAmount > 0, Errors._NothingToSell);
+
+        toSell.approve(address(exchange), dailyAmount);
+        uint256 toBuyBought = exchange.swap(toSell, toBuy, dailyAmount);
+        uint256 toSellSold = dailyAmount;
+
+        uint256 toBuyPrice = (toBuyBought * 1e18) / toSellSold;
+
+        toBuyPriceCumulative[_today()] += toBuyPriceCumulative[lastExecution] + toBuyPrice;
+
+        uint256 amountToRemove = _calcAmountToRemove();
+        dailyAmount -= amountToRemove;
+
+        lastExecution = _today();
+
+        emit Swap(toSellSold, toBuyBought, toBuyPrice);
+
+        return (toBuyBought, toBuyPrice);
+    }
+
+    // NOTE: The number of iterations is "bound" given that a (large) gap between
+    //  executions should be a rare occasion
+    function _calcAmountToRemove() private view returns (uint256) {
+        uint256 amountToRemove;
+        uint256 dayDiff = _today() - lastExecution;
+        for (uint256 i = 0; i < dayDiff; i++) {
+            amountToRemove += removeAmount[_today() - i];
+        }
+        return amountToRemove;
     }
 
     function timeTravel() external {
