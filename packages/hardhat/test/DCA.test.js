@@ -86,7 +86,7 @@ describe("DCA", () => {
 
   describe("#enter()", () => {
     it("should revert when the amount is 0", async () => {
-      const amount = parseUnits("0", 6);
+      const amount = 0;
       const duration = 7;
 
       await expect(
@@ -95,7 +95,7 @@ describe("DCA", () => {
     });
 
     it("should revert when the duration is 0", async () => {
-      const amount = parseUnits("100", 6);
+      const amount = parseUnits("100", 18);
       const duration = 0;
 
       await expect(
@@ -108,7 +108,7 @@ describe("DCA", () => {
       await dca.timeTravel();
       const today = (await dca.today()).toNumber();
 
-      const amount = parseUnits("100", 6);
+      const amount = parseUnits("100", 18);
       const duration = 7;
 
       const total = amount.mul(duration);
@@ -139,7 +139,7 @@ describe("DCA", () => {
       // Contract deployment was today --> time of last execution is today
       const today = (await dca.today()).toNumber();
 
-      const amount = parseUnits("100", 6);
+      const amount = parseUnits("100", 18);
       const duration = 7;
 
       const total = amount.mul(duration);
@@ -170,7 +170,7 @@ describe("DCA", () => {
       await dca.timeTravel();
       const today = (await dca.today()).toNumber();
 
-      const amount = parseUnits("100", 6);
+      const amount = parseUnits("100", 18);
       const duration = 1;
 
       const total = amount.mul(duration);
