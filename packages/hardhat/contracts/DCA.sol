@@ -1,13 +1,14 @@
 //SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 import { IExchange } from "./interfaces/IExchange.sol";
 
 library Errors {
     string internal constant _AmountZero = "Amount can't be 0";
     string internal constant _DurationZero = "Duration can't be 0";
+    string internal constant _EighteenDecimals = "Token must have 18 decimals";
 }
 
 contract DCA {
@@ -19,8 +20,8 @@ contract DCA {
         address owner;
     }
 
-    IERC20 public immutable toSell;
-    IERC20 public immutable toBuy;
+    IERC20Metadata public immutable toSell;
+    IERC20Metadata public immutable toBuy;
     IExchange public immutable exchange;
 
     uint256 public today;
@@ -32,7 +33,10 @@ contract DCA {
 
     event Enter(uint256 indexed id, address indexed sender, uint256 indexed amount, uint256 startDay, uint256 endDay);
 
-    constructor (IERC20 toSell_, IERC20 toBuy_ ,IExchange exchange_) {
+    constructor (IERC20Metadata toSell_, IERC20Metadata toBuy_ ,IExchange exchange_) {
+        require(toSell_.decimals() == 18, Errors._EighteenDecimals);
+        require(toBuy_.decimals() == 18, Errors._EighteenDecimals);
+
         toSell = toSell_;
         toBuy = toBuy_;
         exchange = exchange_;
@@ -44,7 +48,7 @@ contract DCA {
         require(duration > 0, Errors._DurationZero);
 
         uint256 total = amount * duration;
-        IERC20(toSell).transferFrom(msg.sender, address(this), total);
+        IERC20Metadata(toSell).transferFrom(msg.sender, address(this), total);
 
         uint256 startDay = _today();
 

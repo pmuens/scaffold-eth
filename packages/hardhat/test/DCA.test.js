@@ -39,6 +39,41 @@ describe("DCA", () => {
     await tokenB.mint(user.address, parseUnits("1000000", 18));
   });
 
+  describe("#constructor()", () => {
+    let dcaFactory;
+    let tokenFactory;
+    let exchangeFactory;
+
+    beforeEach(async () => {
+      dcaFactory = await ethers.getContractFactory("DCA", deployer);
+      tokenFactory = await ethers.getContractFactory("Token", deployer);
+      exchangeFactory = await ethers.getContractFactory(
+        "MockExchange",
+        deployer
+      );
+    });
+
+    it('should revert when the "toSell" token doesn\'t have 18 decimals', async () => {
+      const toSell = await tokenFactory.deploy("Token A", "TKN-A", 6);
+      const toBuy = await tokenFactory.deploy("Token B", "TKN-B", 18);
+      exchange = await exchangeFactory.deploy(toSell.address, toBuy.address);
+
+      await expect(
+        dcaFactory.deploy(toSell.address, toBuy.address, exchange.address)
+      ).to.be.revertedWith("must have 18 decimals");
+    });
+
+    it('should revert when the "toBuy" token doesn\'t have 18 decimals', async () => {
+      const toSell = await tokenFactory.deploy("Token A", "TKN-A", 18);
+      const toBuy = await tokenFactory.deploy("Token B", "TKN-B", 6);
+      exchange = await exchangeFactory.deploy(toSell.address, toBuy.address);
+
+      await expect(
+        dcaFactory.deploy(toSell.address, toBuy.address, exchange.address)
+      ).to.be.revertedWith("must have 18 decimals");
+    });
+  });
+
   describe("#enter()", () => {
     it("should revert when the amount is 0", async () => {
       const amount = parseUnits("0", 6);
