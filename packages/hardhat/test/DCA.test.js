@@ -4,6 +4,9 @@ const { BigNumber } = require("ethers");
 
 const { parseUnits } = ethers.utils;
 
+// NOTE: The `MockExchange` we're using always returns twice the amount of
+//  Token B for every Token A
+
 describe("DCA", () => {
   let deployer;
   let user;
@@ -224,8 +227,6 @@ describe("DCA", () => {
       // Time-travel 1 Day
       await dca.timeTravel();
 
-      // NOTE: The `MockExchange` we're using always returns twice the amount of
-      //  Token B for every Token A
       const toSellSold = amount;
       const toBuyBought = parseUnits("200", 18);
       const toBuyPrice = parseUnits("2", 18);
@@ -276,8 +277,6 @@ describe("DCA", () => {
       await dca.timeTravel();
       await dca.timeTravel();
 
-      // NOTE: The `MockExchange` we're using always returns twice the amount of
-      //  Token B for every Token A
       const toSellSold = amountAlice.add(amountBob.add(amountCarol));
       const toBuyBought = parseUnits("120", 18);
       const toBuyPrice = parseUnits("2", 18);
@@ -289,6 +288,174 @@ describe("DCA", () => {
       expect(await dca.lastExecution()).to.equal(today);
       expect(await dca.dailyAmount()).to.equal(0);
       expect(await dca.toBuyPriceCumulative(today)).to.equal(toBuyPrice);
+    });
+  });
+
+  describe("#toBuyBalance()", () => {
+    it('should be possible to get the user\'s "toBuy" token balance', async () => {
+      const allocationId = 0;
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const duration = 2;
+
+      const total = amount.mul(duration);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, duration);
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      // Time-Travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      expect(await dca.toBuyBalance(allocationId)).to.equal(
+        parseUnits("400", 18)
+      );
+    });
+
+    it("should calculate the correct balance when no swap happened", async () => {
+      const allocationId = 0;
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const duration = 2;
+
+      const total = amount.mul(duration);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, duration);
+
+      expect(await dca.toBuyBalance(allocationId)).to.equal(0);
+    });
+
+    it("should support skipped days between executions", async () => {
+      const allocationId = 0;
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const duration = 4;
+
+      const total = amount.mul(duration);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, duration);
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      // Time-Travel 2 Days
+      await dca.timeTravel();
+      await dca.timeTravel();
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      expect(await dca.toBuyBalance(allocationId)).to.equal(
+        parseUnits("400", 18)
+      );
+    });
+
+    it('should support balance calculations of "in progress" allocations', async () => {
+      const allocationId = 0;
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const duration = 7;
+
+      const total = amount.mul(duration);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, duration);
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      expect(await dca.toBuyBalance(allocationId)).to.equal(
+        parseUnits("200", 18)
+      );
+    });
+
+    it('should support balance calculations of "processed" allocations', async () => {
+      const allocationId = 0;
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const duration = 2;
+
+      const total = amount.mul(duration);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, duration);
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      // Time-travel 3 Days
+      await dca.timeTravel();
+      await dca.timeTravel();
+      await dca.timeTravel();
+
+      expect(await dca.toBuyBalance(allocationId)).to.equal(
+        parseUnits("400", 18)
+      );
+    });
+
+    it("should support multiple users", async () => {
+      // Alice: Approval + Enter
+      const durationAlice = 3;
+      const allocationIdAlice = 0;
+      const amountAlice = parseUnits("10", 18);
+      const totalAlice = amountAlice.mul(durationAlice);
+
+      await tokenA.connect(alice).approve(dca.address, totalAlice);
+      await dca.connect(alice).enter(amountAlice, durationAlice);
+
+      // Bob: Approval + Enter
+      const durationBob = 2;
+      const allocationIdBob = 1;
+      const amountBob = parseUnits("20", 18);
+      const totalBob = amountBob.mul(durationBob);
+
+      await tokenA.connect(bob).approve(dca.address, totalBob);
+      await dca.connect(bob).enter(amountBob, durationBob);
+
+      // Carol: Approval + Enter
+      const durationCarol = 1;
+      const allocationIdCarol = 2;
+      const amountCarol = parseUnits("30", 18);
+      const totalCarol = amountCarol.mul(durationCarol);
+
+      await tokenA.connect(carol).approve(dca.address, totalCarol);
+      await dca.connect(carol).enter(amountCarol, durationCarol);
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      expect(await dca.toBuyBalance(allocationIdAlice)).to.equal(
+        parseUnits("60", 18)
+      );
+      expect(await dca.toBuyBalance(allocationIdBob)).to.equal(
+        parseUnits("80", 18)
+      );
+      expect(await dca.toBuyBalance(allocationIdCarol)).to.equal(
+        parseUnits("60", 18)
+      );
     });
   });
 });

@@ -56,6 +56,7 @@ contract DCA {
 
         uint256 startDay = _today();
 
+        // Ensure that the first swap will always be done on the `startDay`
         if (lastExecution == startDay) {
             startDay += 1;
         }
@@ -99,6 +100,32 @@ contract DCA {
         emit Swap(toSellSold, toBuyBought, toBuyPrice);
 
         return (toBuyBought, toBuyPrice);
+    }
+
+    function toBuyBalance(uint256 id) external view returns (uint256) {
+        Allocation memory allocation = allocations[id];
+        // NOTE: We're subtracting 1 here given that the first swap
+        //  will always be done on the `startDay`
+        uint256 startDayPrice = toBuyPriceCumulative[allocation.startDay - 1];
+        uint256 endDayPrice = _findClosestCumulativeToBuyPrice(allocation.startDay, allocation.endDay);
+        uint256 cumulativePrice = endDayPrice - startDayPrice;
+        return (cumulativePrice * allocation.amount) / 1e18;
+    }
+
+     // NOTE: The number of iterations is "bound" given that a (large) gap between
+    //  executions should be a rare occasion
+    function _findClosestCumulativeToBuyPrice(uint256 startDay, uint256 endDay) private view returns (uint256) {
+        // If the `startDay` is the same as the `endDay` return the cumulative price of the `endDay`
+        //  (which is the `startDay`)
+        if (startDay == endDay) return toBuyPriceCumulative[endDay];
+        // Find first cumulative price closest to `endDay` by iterating from the `endDay` towards the `startDay`
+        uint256 closestPrice;
+        uint256 endDayIterator = endDay;
+        while (closestPrice == 0 && endDayIterator >= startDay) {
+            closestPrice = toBuyPriceCumulative[endDayIterator];
+            endDayIterator -= 1;
+        }
+        return closestPrice;
     }
 
     // NOTE: The number of iterations is "bound" given that a (large) gap between
