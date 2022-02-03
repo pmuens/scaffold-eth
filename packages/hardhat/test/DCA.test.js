@@ -222,7 +222,7 @@ describe("DCA", () => {
 
       const total = amount.mul(duration);
       await tokenA.connect(user).approve(dca.address, total);
-      dca.connect(user).enter(amount, duration);
+      await dca.connect(user).enter(amount, duration);
 
       // Time-travel 1 Day
       await dca.timeTravel();
