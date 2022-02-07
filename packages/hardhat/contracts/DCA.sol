@@ -8,7 +8,7 @@ import { IExchange } from "./interfaces/IExchange.sol";
 library Errors {
     string internal constant _AmountZero = "Amount can't be 0";
     string internal constant _NothingToSell = "Nothing to sell";
-    string internal constant _DurationZero = "Duration can't be 0";
+    string internal constant _NumSwapsZero = "Number of swaps can't be 0";
     string internal constant _EighteenDecimals = "Token must have 18 decimals";
     string internal constant _FunctionCalledToday = "Function already called today";
 }
@@ -17,8 +17,8 @@ contract DCA {
     struct Allocation {
         uint256 id;
         uint256 amount;
-        uint256 startDay;
-        uint256 endDay;
+        uint256 startSwapNum;
+        uint256 endSwapNum;
         address owner;
     }
 
@@ -27,15 +27,16 @@ contract DCA {
     IExchange public immutable exchange;
 
     uint256 public today;
-    uint256 public dailyAmount;
-    uint256 public lastExecution;
+    uint256 public swapAmount;
+    uint256 public lastSwapNum;
+    uint256 public lastSwapDay;
     uint256 public nextAllocationId;
-    mapping(uint256 => uint256) public removeAmount;
+    mapping(uint256 => uint256) public removeSwapAmount;
     mapping(uint256 => Allocation) public allocations;
     mapping(uint256 => uint256) public toBuyPriceCumulative;
 
     event Swap(uint256 indexed toSellSold, uint256 toBuyBought, uint256 toBuyPrice);
-    event Enter(uint256 indexed id, address indexed sender, uint256 indexed amount, uint256 startDay, uint256 endDay);
+    event Enter(uint256 indexed id, address indexed sender, uint256 indexed amount, uint256 startSwapNum, uint256 endSwapNum);
 
     constructor (IERC20Metadata toSell_, IERC20Metadata toBuy_ ,IExchange exchange_) {
         require(toSell_.decimals() == 18, Errors._EighteenDecimals);
@@ -44,58 +45,55 @@ contract DCA {
         toSell = toSell_;
         toBuy = toBuy_;
         exchange = exchange_;
-        lastExecution = _today();
     }
 
-    function enter(uint256 amount, uint256 duration) external returns (uint256) {
+    function enter(uint256 amount, uint256 numSwaps) external returns (uint256) {
         require(amount > 0, Errors._AmountZero);
-        require(duration > 0, Errors._DurationZero);
+        require(numSwaps > 0, Errors._NumSwapsZero);
 
-        uint256 total = amount * duration;
+        uint256 total = amount * numSwaps;
         IERC20Metadata(toSell).transferFrom(msg.sender, address(this), total);
 
-        uint256 startDay = _today();
+        uint256 startSwapNum = lastSwapNum + 1;
+        uint256 endSwapNum = lastSwapNum + numSwaps;
 
-        // Ensure that the first swap will always be done on the `startDay`
-        if (lastExecution == startDay) {
-            startDay += 1;
-        }
-
-        // We have to subtract 1 from the `duration` given that we'll also swap
-        //  on the `startDay`
-        // If we have a duration of 1, the `endDay` should be the `startDay`
-        // If we have a duration of 2, the `endDay` should be the `startDay` + 1
-        // ...
-        uint256 endDay = startDay + duration - 1;
-        dailyAmount += amount;
-        removeAmount[endDay] += amount;
+        swapAmount += amount;
+        removeSwapAmount[endSwapNum] += amount;
 
         uint256 id = nextAllocationId;
         nextAllocationId++;
 
-        allocations[id] = Allocation({ id: id, amount: amount, startDay: startDay, endDay: endDay, owner: msg.sender });
+        allocations[id] = Allocation({
+            id: id,
+            amount: amount,
+            startSwapNum: startSwapNum,
+            endSwapNum: endSwapNum,
+            owner: msg.sender
+        });
 
-        emit Enter(id, msg.sender, amount, startDay, endDay);
+        emit Enter(id, msg.sender, amount, startSwapNum, endSwapNum);
 
         return id;
     }
 
     function swap() external returns (uint256, uint256) {
-        require(lastExecution < _today(), Errors._FunctionCalledToday);
-        require(dailyAmount > 0, Errors._NothingToSell);
+        require(lastSwapDay < _today(), Errors._FunctionCalledToday);
+        require(swapAmount > 0, Errors._NothingToSell);
 
-        toSell.approve(address(exchange), dailyAmount);
-        uint256 toBuyBought = exchange.swap(toSell, toBuy, dailyAmount);
-        uint256 toSellSold = dailyAmount;
+        uint256 currentSwapNum = lastSwapNum + 1;
+
+        toSell.approve(address(exchange), swapAmount);
+        uint256 toBuyBought = exchange.swap(toSell, toBuy, swapAmount);
+        uint256 toSellSold = swapAmount;
 
         uint256 toBuyPrice = (toBuyBought * 1e18) / toSellSold;
 
-        toBuyPriceCumulative[_today()] += toBuyPriceCumulative[lastExecution] + toBuyPrice;
+        toBuyPriceCumulative[currentSwapNum] += toBuyPriceCumulative[lastSwapNum] + toBuyPrice;
 
-        uint256 amountToRemove = _calcAmountToRemove();
-        dailyAmount -= amountToRemove;
+        swapAmount -= removeSwapAmount[currentSwapNum];
 
-        lastExecution = _today();
+        lastSwapDay = _today();
+        lastSwapNum += currentSwapNum;
 
         emit Swap(toSellSold, toBuyBought, toBuyPrice);
 
@@ -104,39 +102,13 @@ contract DCA {
 
     function toBuyBalance(uint256 id) external view returns (uint256) {
         Allocation memory allocation = allocations[id];
-        // NOTE: We're subtracting 1 here given that the first swap
-        //  will always be done on the `startDay`
-        uint256 startDayPrice = toBuyPriceCumulative[allocation.startDay - 1];
-        uint256 endDayPrice = _findClosestCumulativeToBuyPrice(allocation.startDay, allocation.endDay);
-        uint256 cumulativePrice = endDayPrice - startDayPrice;
+        uint256 startPrice = toBuyPriceCumulative[allocation.startSwapNum - 1];
+        uint256 endPrice = toBuyPriceCumulative[allocation.endSwapNum];
+        if (allocation.endSwapNum > lastSwapNum) {
+            endPrice = toBuyPriceCumulative[lastSwapNum];
+        }
+        uint256 cumulativePrice = endPrice - startPrice;
         return (cumulativePrice * allocation.amount) / 1e18;
-    }
-
-     // NOTE: The number of iterations is "bound" given that a (large) gap between
-    //  executions should be a rare occasion
-    function _findClosestCumulativeToBuyPrice(uint256 startDay, uint256 endDay) private view returns (uint256) {
-        // If the `startDay` is the same as the `endDay` return the cumulative price of the `endDay`
-        //  (which is the `startDay`)
-        if (startDay == endDay) return toBuyPriceCumulative[endDay];
-        // Find first cumulative price closest to `endDay` by iterating from the `endDay` towards the `startDay`
-        uint256 closestPrice;
-        uint256 endDayIterator = endDay;
-        while (closestPrice == 0 && endDayIterator >= startDay) {
-            closestPrice = toBuyPriceCumulative[endDayIterator];
-            endDayIterator -= 1;
-        }
-        return closestPrice;
-    }
-
-    // NOTE: The number of iterations is "bound" given that a (large) gap between
-    //  executions should be a rare occasion
-    function _calcAmountToRemove() private view returns (uint256) {
-        uint256 amountToRemove;
-        uint256 dayDiff = _today() - lastExecution;
-        for (uint256 i = 0; i < dayDiff; i++) {
-            amountToRemove += removeAmount[_today() - i];
-        }
-        return amountToRemove;
     }
 
     function timeTravel() external {

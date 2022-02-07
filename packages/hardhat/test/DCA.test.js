@@ -10,9 +10,6 @@ const { parseUnits } = ethers.utils;
 describe("DCA", () => {
   let deployer;
   let user;
-  let alice;
-  let bob;
-  let carol;
   let keeper;
   let dca;
   let exchange;
@@ -20,7 +17,7 @@ describe("DCA", () => {
   let tokenB;
 
   beforeEach(async () => {
-    [deployer, user, alice, bob, carol, keeper] = await ethers.getSigners();
+    [deployer, user, keeper] = await ethers.getSigners();
     // Get contract factories
     const dcaFactory = await ethers.getContractFactory("DCA", deployer);
     const exchangeFactory = await ethers.getContractFactory(
@@ -44,12 +41,6 @@ describe("DCA", () => {
     // Seed users with funds
     await tokenA.mint(user.address, parseUnits("1000000", 18));
     await tokenB.mint(user.address, parseUnits("1000000", 18));
-    await tokenA.mint(alice.address, parseUnits("1000000", 18));
-    await tokenB.mint(alice.address, parseUnits("1000000", 18));
-    await tokenA.mint(bob.address, parseUnits("1000000", 18));
-    await tokenB.mint(bob.address, parseUnits("1000000", 18));
-    await tokenA.mint(carol.address, parseUnits("1000000", 18));
-    await tokenB.mint(carol.address, parseUnits("1000000", 18));
   });
 
   describe("#constructor()", () => {
@@ -90,111 +81,72 @@ describe("DCA", () => {
   describe("#enter()", () => {
     it("should revert when the amount is 0", async () => {
       const amount = 0;
-      const duration = 7;
+      const numSwaps = 7;
 
       await expect(
-        dca.connect(user).enter(amount, duration)
+        dca.connect(user).enter(amount, numSwaps)
       ).to.be.revertedWith("Amount can't be 0");
     });
 
-    it("should revert when the duration is 0", async () => {
+    it("should revert when the number of swaps is 0", async () => {
       const amount = parseUnits("100", 18);
-      const duration = 0;
+      const numSwaps = 0;
 
       await expect(
-        dca.connect(user).enter(amount, duration)
-      ).to.be.revertedWith("Duration can't be 0");
+        dca.connect(user).enter(amount, numSwaps)
+      ).to.be.revertedWith("Number of swaps can't be 0");
     });
 
     it("should be possible to enter and create an allocation", async () => {
-      // Contract deployment was today --> time-travel to one day in the future
-      await dca.timeTravel();
-      const today = (await dca.today()).toNumber();
-
       const amount = parseUnits("100", 18);
-      const duration = 7;
+      const numSwaps = 7;
 
-      const total = amount.mul(duration);
+      const total = amount.mul(numSwaps);
       await tokenA.connect(user).approve(dca.address, total);
 
-      const startDay = today;
-      // Subtracting 1 given that we'll also swap on the `startDay`
-      const endDay = startDay + duration - 1;
+      const startSwapNum = 1;
+      const endSwapNum = 7;
 
-      await expect(dca.connect(user).enter(amount, duration))
+      await expect(dca.connect(user).enter(amount, numSwaps))
         .to.emit(dca, "Enter")
-        .withArgs(0, user.address, amount, startDay, endDay);
+        .withArgs(0, user.address, amount, startSwapNum, endSwapNum);
 
       expect(await tokenA.balanceOf(dca.address)).to.equal(total);
-      expect(await dca.dailyAmount()).to.equal(amount);
-      expect(await dca.removeAmount(endDay)).to.equal(amount);
+      expect(await dca.swapAmount()).to.equal(amount);
+      expect(await dca.removeSwapAmount(endSwapNum)).to.equal(amount);
       expect(await dca.nextAllocationId()).to.equal(1);
       expect(await dca.allocations(0)).to.deep.equal([
         BigNumber.from(0),
         amount,
-        BigNumber.from(startDay),
-        BigNumber.from(endDay),
+        BigNumber.from(startSwapNum),
+        BigNumber.from(endSwapNum),
         user.address,
       ]);
     });
 
-    it("should increase the start day by one if the last execution was today", async () => {
-      // Contract deployment was today --> time of last execution is today
-      const today = (await dca.today()).toNumber();
-
+    it("should set the end swap number to the start swap number if the number of swaps is 1", async () => {
       const amount = parseUnits("100", 18);
-      const duration = 7;
+      const numSwaps = 1;
 
-      const total = amount.mul(duration);
+      const total = amount.mul(numSwaps);
       await tokenA.connect(user).approve(dca.address, total);
 
-      const startDay = today + 1;
-      // Subtracting 1 given that we'll also swap on the `startDay`
-      const endDay = startDay + duration - 1;
+      const startSwapNum = 1;
+      const endSwapNum = 1;
 
-      await expect(dca.connect(user).enter(amount, duration))
+      await expect(dca.connect(user).enter(amount, numSwaps))
         .to.emit(dca, "Enter")
-        .withArgs(0, user.address, amount, startDay, endDay);
+        .withArgs(0, user.address, amount, startSwapNum, endSwapNum);
 
       expect(await tokenA.balanceOf(dca.address)).to.equal(total);
-      expect(await dca.dailyAmount()).to.equal(amount);
-      expect(await dca.removeAmount(endDay)).to.equal(amount);
+      expect(await dca.swapAmount()).to.equal(amount);
+      expect(await dca.removeSwapAmount(endSwapNum)).to.equal(amount);
       expect(await dca.nextAllocationId()).to.equal(1);
       expect(await dca.allocations(0)).to.deep.equal([
         BigNumber.from(0),
         amount,
-        BigNumber.from(startDay),
-        BigNumber.from(endDay),
-        user.address,
-      ]);
-    });
-
-    it("should set the end day to the start day if the duration is 1 day", async () => {
-      await dca.timeTravel();
-      const today = (await dca.today()).toNumber();
-
-      const amount = parseUnits("100", 18);
-      const duration = 1;
-
-      const total = amount.mul(duration);
-      await tokenA.connect(user).approve(dca.address, total);
-
-      const startDay = today;
-      const endDay = startDay;
-
-      await expect(dca.connect(user).enter(amount, duration))
-        .to.emit(dca, "Enter")
-        .withArgs(0, user.address, amount, startDay, endDay);
-
-      expect(await tokenA.balanceOf(dca.address)).to.equal(total);
-      expect(await dca.dailyAmount()).to.equal(amount);
-      expect(await dca.removeAmount(endDay)).to.equal(amount);
-      expect(await dca.nextAllocationId()).to.equal(1);
-      expect(await dca.allocations(0)).to.deep.equal([
-        BigNumber.from(0),
-        amount,
-        BigNumber.from(startDay),
-        BigNumber.from(endDay),
+        BigNumber.from(startSwapNum),
+        BigNumber.from(endSwapNum),
         user.address,
       ]);
     });
@@ -218,11 +170,11 @@ describe("DCA", () => {
     it("should be possible perform a swap", async () => {
       // Approval + Enter
       const amount = parseUnits("100", 18);
-      const duration = 7;
+      const numSwaps = 7;
 
-      const total = amount.mul(duration);
+      const total = amount.mul(numSwaps);
       await tokenA.connect(user).approve(dca.address, total);
-      await dca.connect(user).enter(amount, duration);
+      await dca.connect(user).enter(amount, numSwaps);
 
       // Time-travel 1 Day
       await dca.timeTravel();
@@ -235,59 +187,12 @@ describe("DCA", () => {
         .to.emit(dca, "Swap")
         .withArgs(toSellSold, toBuyBought, toBuyPrice);
 
+      const swapNum = 1;
       const today = (await dca.today()).toNumber();
-      expect(await dca.lastExecution()).to.equal(today);
-      expect(await dca.dailyAmount()).to.equal(amount);
-      expect(await dca.toBuyPriceCumulative(today)).to.equal(toBuyPrice);
-    });
-
-    it("should support skipped days between executions", async () => {
-      // Alice: Approval + Enter
-      const durationAlice = 3;
-      const amountAlice = parseUnits("10", 18);
-      const totalAlice = amountAlice.mul(durationAlice);
-
-      await tokenA.connect(alice).approve(dca.address, totalAlice);
-      await dca.connect(alice).enter(amountAlice, durationAlice);
-
-      // Bob: Approval + Enter
-      const durationBob = 2;
-      const amountBob = parseUnits("20", 18);
-      const totalBob = amountBob.mul(durationBob);
-
-      await tokenA.connect(bob).approve(dca.address, totalBob);
-      await dca.connect(bob).enter(amountBob, durationBob);
-
-      // Carol: Approval + Enter
-      const durationCarol = 1;
-      const amountCarol = parseUnits("30", 18);
-      const totalCarol = amountCarol.mul(durationCarol);
-
-      await tokenA.connect(carol).approve(dca.address, totalCarol);
-      await dca.connect(carol).enter(amountCarol, durationCarol);
-
-      // Check the planned amount removals
-      const tomorrow = (await dca.today()).toNumber() + 1;
-      expect(await dca.removeAmount(tomorrow)).to.equal(amountCarol);
-      expect(await dca.removeAmount(tomorrow + 1)).to.equal(amountBob);
-      expect(await dca.removeAmount(tomorrow + 2)).to.equal(amountAlice);
-
-      // Time-travel 3 Days
-      await dca.timeTravel();
-      await dca.timeTravel();
-      await dca.timeTravel();
-
-      const toSellSold = amountAlice.add(amountBob.add(amountCarol));
-      const toBuyBought = parseUnits("120", 18);
-      const toBuyPrice = parseUnits("2", 18);
-      await expect(dca.connect(keeper).swap())
-        .to.emit(dca, "Swap")
-        .withArgs(toSellSold, toBuyBought, toBuyPrice);
-
-      const today = (await dca.today()).toNumber();
-      expect(await dca.lastExecution()).to.equal(today);
-      expect(await dca.dailyAmount()).to.equal(0);
-      expect(await dca.toBuyPriceCumulative(today)).to.equal(toBuyPrice);
+      expect(await dca.lastSwapNum()).to.equal(swapNum);
+      expect(await dca.lastSwapDay()).to.equal(today);
+      expect(await dca.swapAmount()).to.equal(amount);
+      expect(await dca.toBuyPriceCumulative(swapNum)).to.equal(toBuyPrice);
     });
   });
 
@@ -297,22 +202,18 @@ describe("DCA", () => {
 
       // Approval + Enter
       const amount = parseUnits("100", 18);
-      const duration = 2;
+      const numSwaps = 1;
 
-      const total = amount.mul(duration);
+      const total = amount.mul(numSwaps);
       await tokenA.connect(user).approve(dca.address, total);
-      await dca.connect(user).enter(amount, duration);
+      await dca.connect(user).enter(amount, numSwaps);
 
       // Time-travel 1 Day
       await dca.timeTravel();
       await dca.connect(keeper).swap();
 
-      // Time-Travel 1 Day
-      await dca.timeTravel();
-      await dca.connect(keeper).swap();
-
       expect(await dca.toBuyBalance(allocationId)).to.equal(
-        parseUnits("400", 18)
+        parseUnits("200", 18)
       );
     });
 
@@ -321,41 +222,13 @@ describe("DCA", () => {
 
       // Approval + Enter
       const amount = parseUnits("100", 18);
-      const duration = 2;
+      const numSwaps = 2;
 
-      const total = amount.mul(duration);
+      const total = amount.mul(numSwaps);
       await tokenA.connect(user).approve(dca.address, total);
-      await dca.connect(user).enter(amount, duration);
+      await dca.connect(user).enter(amount, numSwaps);
 
       expect(await dca.toBuyBalance(allocationId)).to.equal(0);
-    });
-
-    it("should support skipped days between executions", async () => {
-      const allocationId = 0;
-
-      // Approval + Enter
-      const amount = parseUnits("100", 18);
-      const duration = 4;
-
-      const total = amount.mul(duration);
-      await tokenA.connect(user).approve(dca.address, total);
-      await dca.connect(user).enter(amount, duration);
-
-      // Time-travel 1 Day
-      await dca.timeTravel();
-      await dca.connect(keeper).swap();
-
-      // Time-Travel 2 Days
-      await dca.timeTravel();
-      await dca.timeTravel();
-
-      // Time-travel 1 Day
-      await dca.timeTravel();
-      await dca.connect(keeper).swap();
-
-      expect(await dca.toBuyBalance(allocationId)).to.equal(
-        parseUnits("400", 18)
-      );
     });
 
     it('should support balance calculations of "in progress" allocations', async () => {
@@ -363,11 +236,11 @@ describe("DCA", () => {
 
       // Approval + Enter
       const amount = parseUnits("100", 18);
-      const duration = 7;
+      const numSwaps = 7;
 
-      const total = amount.mul(duration);
+      const total = amount.mul(numSwaps);
       await tokenA.connect(user).approve(dca.address, total);
-      await dca.connect(user).enter(amount, duration);
+      await dca.connect(user).enter(amount, numSwaps);
 
       // Time-travel 1 Day
       await dca.timeTravel();
@@ -383,11 +256,11 @@ describe("DCA", () => {
 
       // Approval + Enter
       const amount = parseUnits("100", 18);
-      const duration = 2;
+      const numSwaps = 2;
 
-      const total = amount.mul(duration);
+      const total = amount.mul(numSwaps);
       await tokenA.connect(user).approve(dca.address, total);
-      await dca.connect(user).enter(amount, duration);
+      await dca.connect(user).enter(amount, numSwaps);
 
       // Time-travel 1 Day
       await dca.timeTravel();
@@ -396,65 +269,9 @@ describe("DCA", () => {
       // Time-travel 1 Day
       await dca.timeTravel();
       await dca.connect(keeper).swap();
-
-      // Time-travel 3 Days
-      await dca.timeTravel();
-      await dca.timeTravel();
-      await dca.timeTravel();
 
       expect(await dca.toBuyBalance(allocationId)).to.equal(
         parseUnits("400", 18)
-      );
-    });
-
-    it("should support multiple users", async () => {
-      // Alice: Approval + Enter
-      const durationAlice = 3;
-      const allocationIdAlice = 0;
-      const amountAlice = parseUnits("10", 18);
-      const totalAlice = amountAlice.mul(durationAlice);
-
-      await tokenA.connect(alice).approve(dca.address, totalAlice);
-      await dca.connect(alice).enter(amountAlice, durationAlice);
-
-      // Bob: Approval + Enter
-      const durationBob = 2;
-      const allocationIdBob = 1;
-      const amountBob = parseUnits("20", 18);
-      const totalBob = amountBob.mul(durationBob);
-
-      await tokenA.connect(bob).approve(dca.address, totalBob);
-      await dca.connect(bob).enter(amountBob, durationBob);
-
-      // Carol: Approval + Enter
-      const durationCarol = 1;
-      const allocationIdCarol = 2;
-      const amountCarol = parseUnits("30", 18);
-      const totalCarol = amountCarol.mul(durationCarol);
-
-      await tokenA.connect(carol).approve(dca.address, totalCarol);
-      await dca.connect(carol).enter(amountCarol, durationCarol);
-
-      // Time-travel 1 Day
-      await dca.timeTravel();
-      await dca.connect(keeper).swap();
-
-      // Time-travel 1 Day
-      await dca.timeTravel();
-      await dca.connect(keeper).swap();
-
-      // Time-travel 1 Day
-      await dca.timeTravel();
-      await dca.connect(keeper).swap();
-
-      expect(await dca.toBuyBalance(allocationIdAlice)).to.equal(
-        parseUnits("60", 18)
-      );
-      expect(await dca.toBuyBalance(allocationIdBob)).to.equal(
-        parseUnits("80", 18)
-      );
-      expect(await dca.toBuyBalance(allocationIdCarol)).to.equal(
-        parseUnits("60", 18)
       );
     });
   });
