@@ -93,7 +93,7 @@ contract DCA {
         swapAmount -= removeSwapAmount[currentSwapNum];
 
         lastSwapDay = _today();
-        lastSwapNum += currentSwapNum;
+        lastSwapNum = currentSwapNum;
 
         emit Swap(toSellSold, toBuyBought, toBuyPrice);
 

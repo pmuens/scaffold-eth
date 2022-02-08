@@ -194,6 +194,30 @@ describe("DCA", () => {
       expect(await dca.swapAmount()).to.equal(amount);
       expect(await dca.toBuyPriceCumulative(swapNum)).to.equal(toBuyPrice);
     });
+
+    it('should increment "lastSwapNum" by 1', async () => {
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const numSwaps = 7;
+
+      const total = amount.mul(numSwaps);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, numSwaps);
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      expect(await dca.lastSwapNum()).to.equal(3);
+    });
   });
 
   describe("#toBuyBalance()", () => {
