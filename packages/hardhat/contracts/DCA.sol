@@ -1,6 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 import { IExchange } from "./interfaces/IExchange.sol";
@@ -14,7 +15,7 @@ library Errors {
     string internal constant _FunctionCalledToday = "Function already called today";
 }
 
-contract DCA {
+contract DCA is ERC721 {
     struct Allocation {
         uint256 id;
         uint256 amount;
@@ -40,7 +41,9 @@ contract DCA {
     event Enter(uint256 indexed id, address indexed sender, uint256 indexed amount, uint256 startSwapNum, uint256 endSwapNum);
     event Exit(uint256 indexed id, address indexed sender, uint256 lastSwapNum);
 
-    constructor (IERC20Metadata toSell_, IERC20Metadata toBuy_ ,IExchange exchange_) {
+    constructor (string memory name_, string memory symbol_, IERC20Metadata toSell_, IERC20Metadata toBuy_ ,IExchange exchange_)
+        ERC721(name_, symbol_)
+    {
         require(toSell_.decimals() == 18, Errors._EighteenDecimals);
         require(toBuy_.decimals() == 18, Errors._EighteenDecimals);
 
@@ -73,15 +76,17 @@ contract DCA {
             owner: msg.sender
         });
 
+        _mint(msg.sender, id);
+
         emit Enter(id, msg.sender, amount, startSwapNum, endSwapNum);
 
         return id;
     }
 
     function exit(uint256 id) external returns (bool) {
-        Allocation storage allocation = allocations[id];
+        require(ownerOf(id) == msg.sender, Errors._OnlyOwner);
 
-        require(msg.sender == allocation.owner, Errors._OnlyOwner);
+        Allocation storage allocation = allocations[id];
 
         if (lastSwapNum < allocation.endSwapNum) {
             swapAmount -= allocation.amount;
@@ -91,6 +96,7 @@ contract DCA {
         uint256 toBuyBought = toBuyBalance(id);
         uint256 toSellLeft = toSellBalance(id);
 
+        _burn(id);
         delete allocations[id];
 
         toBuy.transfer(msg.sender, toBuyBought);

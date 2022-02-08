@@ -16,6 +16,8 @@ describe("DCA", () => {
   let exchange;
   let tokenA;
   let tokenB;
+  const name = "DCA Vault: TKN-A->TKN-B";
+  const symbol = "TKN-A->TKN-B";
 
   beforeEach(async () => {
     [deployer, user, keeper] = await ethers.getSigners();
@@ -32,6 +34,8 @@ describe("DCA", () => {
     tokenB = await tokenBFactory.deploy();
     exchange = await exchangeFactory.deploy(tokenA.address, tokenB.address);
     dca = await dcaFactory.deploy(
+      name,
+      symbol,
       tokenA.address,
       tokenB.address,
       exchange.address
@@ -64,7 +68,13 @@ describe("DCA", () => {
       exchange = await exchangeFactory.deploy(toSell.address, toBuy.address);
 
       await expect(
-        dcaFactory.deploy(toSell.address, toBuy.address, exchange.address)
+        dcaFactory.deploy(
+          name,
+          symbol,
+          toSell.address,
+          toBuy.address,
+          exchange.address
+        )
       ).to.be.revertedWith("must have 18 decimals");
     });
 
@@ -74,7 +84,13 @@ describe("DCA", () => {
       exchange = await exchangeFactory.deploy(toSell.address, toBuy.address);
 
       await expect(
-        dcaFactory.deploy(toSell.address, toBuy.address, exchange.address)
+        dcaFactory.deploy(
+          "DCA Vault: TKN-A->TKN-B",
+          "TKN-A->TKN-B",
+          toSell.address,
+          toBuy.address,
+          exchange.address
+        )
       ).to.be.revertedWith("must have 18 decimals");
     });
   });
@@ -387,7 +403,16 @@ describe("DCA", () => {
     it("should revert when msg.sender is not the owner of the allocation", async () => {
       const allocationId = 0;
 
-      await expect(dca.connect(user).exit(allocationId)).to.be.revertedWith(
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const numSwaps = 7;
+
+      const total = amount.mul(numSwaps);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, numSwaps);
+
+      // NOTE: Using the `keeper` here...
+      await expect(dca.connect(keeper).exit(allocationId)).to.be.revertedWith(
         "Only owner"
       );
     });
