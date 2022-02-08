@@ -3,6 +3,7 @@ const { ethers } = require("hardhat");
 const { BigNumber } = require("ethers");
 
 const { parseUnits } = ethers.utils;
+const { AddressZero } = ethers.constants;
 
 // NOTE: The `MockExchange` we're using always returns twice the amount of
 //  Token B for every Token A
@@ -379,6 +380,228 @@ describe("DCA", () => {
       await dca.connect(keeper).swap();
 
       expect(await dca.toSellBalance(allocationId)).to.equal(0);
+    });
+  });
+
+  describe("#exit()", () => {
+    it("should revert when msg.sender is not the owner of the allocation", async () => {
+      const allocationId = 0;
+
+      await expect(dca.connect(user).exit(allocationId)).to.be.revertedWith(
+        "Only owner"
+      );
+    });
+
+    it("should be possible to exit and delete an allocation", async () => {
+      const allocationId = 0;
+
+      // Initial user balances
+      const tokenABalance = await tokenA.balanceOf(user.address);
+      const tokenBBalance = await tokenB.balanceOf(user.address);
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const numSwaps = 7;
+
+      const total = amount.mul(numSwaps);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, numSwaps);
+
+      let lastSwapNum = 0;
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+      lastSwapNum += 1;
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+      lastSwapNum += 1;
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+      lastSwapNum += 1;
+
+      const endSwapNum = numSwaps;
+      const swapsTotal = lastSwapNum;
+      const mockExchangeMultiplier = 2;
+
+      await expect(dca.connect(user).exit(allocationId))
+        .to.emit(dca, "Exit")
+        .withArgs(0, user.address, lastSwapNum);
+
+      expect(await dca.swapAmount()).to.equal(0);
+      expect(await dca.removeSwapAmount(endSwapNum)).to.equal(0);
+      expect(await tokenA.balanceOf(dca.address)).to.equal(0);
+      expect(await tokenB.balanceOf(dca.address)).to.equal(0);
+      expect(await tokenA.balanceOf(user.address)).to.equal(
+        tokenABalance.sub(amount.mul(swapsTotal))
+      );
+      expect(await tokenB.balanceOf(user.address)).to.equal(
+        tokenBBalance.add(amount.mul(lastSwapNum).mul(mockExchangeMultiplier))
+      );
+      expect(await dca.allocations(allocationId)).to.deep.equal([
+        BigNumber.from(0),
+        BigNumber.from(0),
+        BigNumber.from(0),
+        BigNumber.from(0),
+        AddressZero,
+      ]);
+    });
+
+    it("should be possible to exit an allocation when no swap happened", async () => {
+      const allocationId = 0;
+
+      // Initial user balances
+      const tokenABalance = await tokenA.balanceOf(user.address);
+      const tokenBBalance = await tokenB.balanceOf(user.address);
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const numSwaps = 5;
+
+      const total = amount.mul(numSwaps);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, numSwaps);
+
+      const lastSwapNum = 0;
+      const endSwapNum = numSwaps;
+
+      await expect(dca.connect(user).exit(allocationId))
+        .to.emit(dca, "Exit")
+        .withArgs(0, user.address, lastSwapNum);
+
+      expect(await dca.swapAmount()).to.equal(0);
+      expect(await dca.removeSwapAmount(endSwapNum)).to.equal(0);
+      expect(await tokenA.balanceOf(dca.address)).to.equal(0);
+      expect(await tokenB.balanceOf(dca.address)).to.equal(0);
+      expect(await tokenA.balanceOf(user.address)).to.equal(tokenABalance);
+      expect(await tokenB.balanceOf(user.address)).to.equal(tokenBBalance);
+      expect(await dca.allocations(allocationId)).to.deep.equal([
+        BigNumber.from(0),
+        BigNumber.from(0),
+        BigNumber.from(0),
+        BigNumber.from(0),
+        AddressZero,
+      ]);
+    });
+
+    it('should be possible to exit "in progress" allocations', async () => {
+      const allocationId = 0;
+
+      // Initial user balances
+      const tokenABalance = await tokenA.balanceOf(user.address);
+      const tokenBBalance = await tokenB.balanceOf(user.address);
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const numSwaps = 7;
+
+      const total = amount.mul(numSwaps);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, numSwaps);
+
+      let lastSwapNum = 0;
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+      lastSwapNum += 1;
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+      lastSwapNum += 1;
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+      lastSwapNum += 1;
+
+      const endSwapNum = numSwaps;
+      const swapsTotal = lastSwapNum;
+      const mockExchangeMultiplier = 2;
+
+      await expect(dca.connect(user).exit(allocationId))
+        .to.emit(dca, "Exit")
+        .withArgs(0, user.address, lastSwapNum);
+
+      expect(await dca.swapAmount()).to.equal(0);
+      expect(await dca.removeSwapAmount(endSwapNum)).to.equal(0);
+      expect(await tokenA.balanceOf(dca.address)).to.equal(0);
+      expect(await tokenB.balanceOf(dca.address)).to.equal(0);
+      expect(await tokenA.balanceOf(user.address)).to.equal(
+        tokenABalance.sub(amount.mul(swapsTotal))
+      );
+      expect(await tokenB.balanceOf(user.address)).to.equal(
+        tokenBBalance.add(amount.mul(lastSwapNum).mul(mockExchangeMultiplier))
+      );
+      expect(await dca.allocations(allocationId)).to.deep.equal([
+        BigNumber.from(0),
+        BigNumber.from(0),
+        BigNumber.from(0),
+        BigNumber.from(0),
+        AddressZero,
+      ]);
+    });
+
+    it('should be possible to exit "processed" allocations', async () => {
+      const allocationId = 0;
+
+      // Initial user balances
+      const tokenABalance = await tokenA.balanceOf(user.address);
+      const tokenBBalance = await tokenB.balanceOf(user.address);
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const numSwaps = 3;
+
+      const total = amount.mul(numSwaps);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, numSwaps);
+
+      let lastSwapNum = 0;
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+      lastSwapNum += 1;
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+      lastSwapNum += 1;
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+      lastSwapNum += 1;
+
+      const swapsTotal = lastSwapNum;
+      const mockExchangeMultiplier = 2;
+
+      await expect(dca.connect(user).exit(allocationId))
+        .to.emit(dca, "Exit")
+        .withArgs(0, user.address, lastSwapNum);
+
+      expect(await dca.swapAmount()).to.equal(0);
+      expect(await tokenA.balanceOf(dca.address)).to.equal(0);
+      expect(await tokenB.balanceOf(dca.address)).to.equal(0);
+      expect(await tokenA.balanceOf(user.address)).to.equal(
+        tokenABalance.sub(amount.mul(swapsTotal))
+      );
+      expect(await tokenB.balanceOf(user.address)).to.equal(
+        tokenBBalance.add(amount.mul(lastSwapNum).mul(mockExchangeMultiplier))
+      );
+      expect(await dca.allocations(allocationId)).to.deep.equal([
+        BigNumber.from(0),
+        BigNumber.from(0),
+        BigNumber.from(0),
+        BigNumber.from(0),
+        AddressZero,
+      ]);
     });
   });
 });

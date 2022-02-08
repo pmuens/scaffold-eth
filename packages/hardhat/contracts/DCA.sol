@@ -6,6 +6,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { IExchange } from "./interfaces/IExchange.sol";
 
 library Errors {
+    string internal constant _OnlyOwner = "Only owner";
     string internal constant _AmountZero = "Amount can't be 0";
     string internal constant _NothingToSell = "Nothing to sell";
     string internal constant _NumSwapsZero = "Number of swaps can't be 0";
@@ -37,6 +38,7 @@ contract DCA {
 
     event Swap(uint256 indexed toSellSold, uint256 toBuyBought, uint256 toBuyPrice);
     event Enter(uint256 indexed id, address indexed sender, uint256 indexed amount, uint256 startSwapNum, uint256 endSwapNum);
+    event Exit(uint256 indexed id, address indexed sender, uint256 lastSwapNum);
 
     constructor (IERC20Metadata toSell_, IERC20Metadata toBuy_ ,IExchange exchange_) {
         require(toSell_.decimals() == 18, Errors._EighteenDecimals);
@@ -76,6 +78,29 @@ contract DCA {
         return id;
     }
 
+    function exit(uint256 id) external returns (bool) {
+        Allocation storage allocation = allocations[id];
+
+        require(msg.sender == allocation.owner, Errors._OnlyOwner);
+
+        if (lastSwapNum < allocation.endSwapNum) {
+            swapAmount -= allocation.amount;
+            removeSwapAmount[allocation.endSwapNum] -= allocation.amount;
+        }
+
+        uint256 toBuyBought = toBuyBalance(id);
+        uint256 toSellLeft = toSellBalance(id);
+
+        delete allocations[id];
+
+        toBuy.transfer(msg.sender, toBuyBought);
+        toSell.transfer(msg.sender, toSellLeft);
+
+        emit Exit(id, msg.sender, lastSwapNum);
+
+        return true;
+    }
+
     function swap() external returns (uint256, uint256) {
         require(lastSwapDay < _today(), Errors._FunctionCalledToday);
         require(swapAmount > 0, Errors._NothingToSell);
@@ -100,7 +125,7 @@ contract DCA {
         return (toBuyBought, toBuyPrice);
     }
 
-    function toBuyBalance(uint256 id) external view returns (uint256) {
+    function toBuyBalance(uint256 id) public view returns (uint256) {
         Allocation memory allocation = allocations[id];
         uint256 startPrice = toBuyPriceCumulative[allocation.startSwapNum - 1];
         uint256 endPrice = toBuyPriceCumulative[allocation.endSwapNum];
@@ -111,7 +136,7 @@ contract DCA {
         return (cumulativePrice * allocation.amount) / 1e18;
     }
 
-    function toSellBalance(uint256 id) external view returns (uint256) {
+    function toSellBalance(uint256 id) public view returns (uint256) {
         Allocation memory allocation = allocations[id];
 
         uint256 diff = 0;
