@@ -275,4 +275,86 @@ describe("DCA", () => {
       );
     });
   });
+
+  describe("#toSellBalance()", () => {
+    it('should be possible to get the user\'s "toSell" token balance', async () => {
+      const allocationId = 0;
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const numSwaps = 2;
+
+      const total = amount.mul(numSwaps);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, numSwaps);
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      expect(await dca.toSellBalance(allocationId)).to.equal(
+        parseUnits("100", 18)
+      );
+    });
+
+    it("should calculate the correct balance when no swap happened", async () => {
+      const allocationId = 0;
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const numSwaps = 5;
+
+      const total = amount.mul(numSwaps);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, numSwaps);
+
+      expect(await dca.toSellBalance(allocationId)).to.equal(total);
+    });
+
+    it('should support balance calculations of "in progress" allocations', async () => {
+      const allocationId = 0;
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const numSwaps = 7;
+
+      const total = amount.mul(numSwaps);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, numSwaps);
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      expect(await dca.toSellBalance(allocationId)).to.equal(
+        parseUnits("500", 18)
+      );
+    });
+
+    it('should support balance calculations of "processed" allocations', async () => {
+      const allocationId = 0;
+
+      // Approval + Enter
+      const amount = parseUnits("100", 18);
+      const numSwaps = 2;
+
+      const total = amount.mul(numSwaps);
+      await tokenA.connect(user).approve(dca.address, total);
+      await dca.connect(user).enter(amount, numSwaps);
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      // Time-travel 1 Day
+      await dca.timeTravel();
+      await dca.connect(keeper).swap();
+
+      expect(await dca.toSellBalance(allocationId)).to.equal(0);
+    });
+  });
 });

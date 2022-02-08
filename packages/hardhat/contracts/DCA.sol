@@ -111,6 +111,23 @@ contract DCA {
         return (cumulativePrice * allocation.amount) / 1e18;
     }
 
+    function toSellBalance(uint256 id) external view returns (uint256) {
+        Allocation memory allocation = allocations[id];
+
+        uint256 diff = 0;
+        if (lastSwapNum < allocation.startSwapNum) {
+            // We need to add 1 here because the `startSwapNum` is
+            //  "shifted" by 1 in `enter`
+            diff = allocation.endSwapNum - allocation.startSwapNum + 1;
+        } else if (lastSwapNum == allocation.startSwapNum) {
+            diff = allocation.endSwapNum - allocation.startSwapNum;
+        } else if (lastSwapNum < allocation.endSwapNum) {
+            diff = allocation.endSwapNum - lastSwapNum;
+        }
+
+        return diff * allocation.amount;
+    }
+
     function timeTravel() external {
         today += 1;
     }
