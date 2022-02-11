@@ -74,8 +74,8 @@ async function getMainnetEther(receiver) {
   const { parseUnits, formatUnits } = ethers.utils;
   const provider = new ethers.providers.JsonRpcProvider(NETWORKS.localhost.rpcUrl);
 
-  // https://etherscan.io/address/0xE78388b4CE79068e89Bf8aA7f218eF6b9AB0e9d0
-  const WHALE_ADDRESS = "0xE78388b4CE79068e89Bf8aA7f218eF6b9AB0e9d0";
+  // https://arbiscan.io/address/0x750b87e9e561fbf97aae302ac88abab7b60524a7
+  const WHALE_ADDRESS = "0x750B87e9e561fbF97aAE302AC88ABAb7b60524A7";
 
   await provider.send("hardhat_impersonateAccount", [WHALE_ADDRESS]);
   const signer = provider.getSigner(WHALE_ADDRESS);
@@ -94,9 +94,12 @@ async function getMainnetToken(receiver) {
   const { formatUnits } = ethers.utils;
   const provider = new ethers.providers.JsonRpcProvider(NETWORKS.localhost.rpcUrl);
 
-  // https://etherscan.io/address/0xE78388b4CE79068e89Bf8aA7f218eF6b9AB0e9d0
-  const WHALE_ADDRESS = "0xE78388b4CE79068e89Bf8aA7f218eF6b9AB0e9d0";
-  const TOKEN_ADDRESS = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
+  // https://arbiscan.io/address/0x74c764d41b77dbbb4fe771dab1939b00b146894a
+  const WHALE_ADDRESS = "0x74c764D41B77DBbb4fe771daB1939B00b146894A";
+  const TOKEN_ADDRESS = "0x82af49447d8a07e3bd95bd0d56f35241523fbab1";
+
+  // Send "ETH" from ETH Whale to Token Whale so that we can pay for the transaction
+  await getMainnetEther(WHALE_ADDRESS);
 
   await provider.send("hardhat_impersonateAccount", [WHALE_ADDRESS]);
   const signer = provider.getSigner(WHALE_ADDRESS);
