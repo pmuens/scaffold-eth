@@ -70,6 +70,59 @@ const providers = [
   "https://rpc.scaffoldeth.io:48544",
 ];
 
+async function getMainnetEther(receiver) {
+  const { parseUnits, formatUnits } = ethers.utils;
+  const provider = new ethers.providers.JsonRpcProvider(NETWORKS.localhost.rpcUrl);
+
+  // https://etherscan.io/address/0xE78388b4CE79068e89Bf8aA7f218eF6b9AB0e9d0
+  const WHALE_ADDRESS = "0xE78388b4CE79068e89Bf8aA7f218eF6b9AB0e9d0";
+
+  await provider.send("hardhat_impersonateAccount", [WHALE_ADDRESS]);
+  const signer = provider.getSigner(WHALE_ADDRESS);
+
+  const whaleBalance = await signer.getBalance();
+  console.log("Whale ETH Balance", formatUnits(whaleBalance, "18"));
+
+  const amountToTransfer = parseFloat(formatUnits(whaleBalance, "18")) - 0.01;
+  return signer.sendTransaction({
+    to: receiver,
+    value: parseUnits(String(amountToTransfer)),
+  });
+}
+
+async function getMainnetToken(receiver) {
+  const { formatUnits } = ethers.utils;
+  const provider = new ethers.providers.JsonRpcProvider(NETWORKS.localhost.rpcUrl);
+
+  // https://etherscan.io/address/0xE78388b4CE79068e89Bf8aA7f218eF6b9AB0e9d0
+  const WHALE_ADDRESS = "0xE78388b4CE79068e89Bf8aA7f218eF6b9AB0e9d0";
+  const TOKEN_ADDRESS = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
+
+  await provider.send("hardhat_impersonateAccount", [WHALE_ADDRESS]);
+  const signer = provider.getSigner(WHALE_ADDRESS);
+
+  const token = new ethers.Contract(
+    TOKEN_ADDRESS,
+    [
+      "function symbol() view returns (string)",
+      "function decimals() view returns (uint8)",
+      "function balanceOf(address owner) view returns (uint256)",
+      "function transfer(address to, uint amount) returns (bool)",
+    ],
+    signer,
+  );
+  const symbol = await token.symbol();
+  const decimals = await token.decimals();
+
+  const whaleBalance = await token.balanceOf(WHALE_ADDRESS);
+  console.log(`Whale ${symbol} Balance`, formatUnits(whaleBalance, decimals));
+
+  await token.transfer(receiver, whaleBalance);
+
+  const receiverBalance = await token.balanceOf(receiver);
+  console.log(`Receiver ${symbol} Balance`, formatUnits(receiverBalance, decimals));
+}
+
 function App(props) {
   // specify all the chains your app is available on. Eg: ['localhost', 'mainnet', ...otherNetworks ]
   // reference './constants.js' for other networks
@@ -256,6 +309,10 @@ function App(props) {
         logoutOfWeb3Modal={logoutOfWeb3Modal}
         USE_NETWORK_SELECTOR={USE_NETWORK_SELECTOR}
       />
+
+      <Button onClick={() => getMainnetEther(address)}>Get ETH</Button>
+      <Button onClick={() => getMainnetToken(address)}>Get Token</Button>
+
       <Menu style={{ textAlign: "center", marginTop: 40 }} selectedKeys={[location.pathname]} mode="horizontal">
         <Menu.Item key="/">
           <Link to="/">App Home</Link>
