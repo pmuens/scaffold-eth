@@ -70,7 +70,7 @@ const providers = [
   "https://rpc.scaffoldeth.io:48544",
 ];
 
-async function getMainnetEther(receiver) {
+async function getMainnetEther(receiver, amount) {
   const { parseUnits, formatUnits } = ethers.utils;
   const provider = new ethers.providers.JsonRpcProvider(NETWORKS.localhost.rpcUrl);
 
@@ -83,15 +83,17 @@ async function getMainnetEther(receiver) {
   const whaleBalance = await signer.getBalance();
   console.log("Whale ETH Balance", formatUnits(whaleBalance, "18"));
 
-  const amountToTransfer = parseFloat(formatUnits(whaleBalance, "18")) - 0.01;
+  console.log(`Transferring ${amount} ETH`);
+  const amountToTransfer = parseUnits(amount, 18);
+
   return signer.sendTransaction({
     to: receiver,
-    value: parseUnits(String(amountToTransfer)),
+    value: amountToTransfer,
   });
 }
 
-async function getMainnetToken(receiver) {
-  const { formatUnits } = ethers.utils;
+async function getMainnetToken(receiver, amount) {
+  const { parseUnits, formatUnits } = ethers.utils;
   const provider = new ethers.providers.JsonRpcProvider(NETWORKS.localhost.rpcUrl);
 
   // https://arbiscan.io/address/0x74c764d41b77dbbb4fe771dab1939b00b146894a
@@ -99,7 +101,7 @@ async function getMainnetToken(receiver) {
   const TOKEN_ADDRESS = "0x82af49447d8a07e3bd95bd0d56f35241523fbab1";
 
   // Send "ETH" from ETH Whale to Token Whale so that we can pay for the transaction
-  await getMainnetEther(WHALE_ADDRESS);
+  await getMainnetEther(WHALE_ADDRESS, "0.2");
 
   await provider.send("hardhat_impersonateAccount", [WHALE_ADDRESS]);
   const signer = provider.getSigner(WHALE_ADDRESS);
@@ -120,7 +122,9 @@ async function getMainnetToken(receiver) {
   const whaleBalance = await token.balanceOf(WHALE_ADDRESS);
   console.log(`Whale ${symbol} Balance`, formatUnits(whaleBalance, decimals));
 
-  await token.transfer(receiver, whaleBalance);
+  console.log(`Transferring ${amount} ${symbol}`);
+  const amountToTransfer = parseUnits(amount, decimals);
+  await token.transfer(receiver, amountToTransfer);
 
   const receiverBalance = await token.balanceOf(receiver);
   console.log(`Receiver ${symbol} Balance`, formatUnits(receiverBalance, decimals));
@@ -313,8 +317,8 @@ function App(props) {
         USE_NETWORK_SELECTOR={USE_NETWORK_SELECTOR}
       />
 
-      <Button onClick={() => getMainnetEther(address)}>Get ETH</Button>
-      <Button onClick={() => getMainnetToken(address)}>Get Token</Button>
+      <Button onClick={() => getMainnetEther(address, "0.5")}>Get ETH</Button>
+      <Button onClick={() => getMainnetToken(address, "100")}>Get Token</Button>
 
       <Menu style={{ textAlign: "center", marginTop: 40 }} selectedKeys={[location.pathname]} mode="horizontal">
         <Menu.Item key="/">
